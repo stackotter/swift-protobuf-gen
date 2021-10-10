@@ -6,12 +6,17 @@ import Source
 let tempDir = FileManager.default.temporaryDirectory
 let tempFile = tempDir.appendingPathComponent("code.swift")
 let testCode = """
-struct Data {
-  public var firstName: String
-  private var lastName: String
-  public var age: Int
-  public var twiceAge: Int { age * 2 }
-  public var friends: [String]
+struct Friend {
+  var fullName: String
+  var eyeCount: UInt8
+}
+
+struct Person {
+  var firstName: String
+  var lastName: String
+  var age: Int
+  var twiceAge: Int { age * 2 }
+  var friends: [String]
 }
 """
 
@@ -25,13 +30,17 @@ do {
   let visitor = StructParser()
   try _ = visitor.traverse(topLevelDecl)
   
-  guard let structDeclaration = visitor.structs["Data"] else {
+  guard
+    let friendStruct = visitor.structs["Friend"],
+    let personStruct = visitor.structs["Person"]
+  else {
     print("Failed to find specified struct")
     Foundation.exit(1)
   }
   
   var file = ProtoFile()
-  try file.add(structDeclaration)
+  try file.add(friendStruct)
+  try file.add(personStruct)
   print(file.toString())
 } catch {
   print("Failed to parse file: \(error)")

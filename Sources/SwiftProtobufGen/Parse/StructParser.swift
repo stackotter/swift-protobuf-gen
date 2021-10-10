@@ -29,6 +29,10 @@ class StructParser : ASTVisitor {
       // We can safely assume syntax is correct so just assume it's the correct closing bracket
       if "}])>".contains(c) {
         openBrackets.removeLast()
+        token.append(c)
+        tokens.append(token)
+        token = ""
+        continue
       }
       
       // Brackets and their contents count as one big token
@@ -124,9 +128,10 @@ class StructParser : ASTVisitor {
       let typeTokens = tokenizeType(typeText)
       let type = try parseType(typeTokens)
       
+      // Ignore computed properties
       if let nextToken = iterator.next() {
-        if nextToken == "{" {
-          print("ignoring computed property '\(name)'")
+        print("next token: \(nextToken)")
+        if nextToken.starts(with: "{") {
           return nil
         }
       }
