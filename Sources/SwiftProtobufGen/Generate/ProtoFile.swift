@@ -3,6 +3,9 @@ import Foundation
 struct ProtoFile {
   var syntax = "proto3"
   var messages: [ProtoMessage] = []
+  var messageNames: [String] {
+    messages.map { $0.name }
+  }
   
   /// - Returns: The generated contents of the proto file.
   func toString() -> String {
@@ -26,7 +29,7 @@ struct ProtoFile {
       let protoType = try protoType(for: property.type)
       message.fields.append(
         ProtoField(
-          isRepeated: false,
+          modifier: property.type.name == "Optional" ? .optional : nil,
           baseType: protoType,
           name: property.name.snakeCased(),
           index: index + 1
@@ -56,15 +59,25 @@ struct ProtoFile {
         }
         let elementProtoType = try protoType(for: elementType)
         let messageName = try messageName(for: swiftType)
-        let message = ProtoMessage(
-          name: messageName,
-          fields: [
-            ProtoField(isRepeated: true, baseType: elementProtoType, name: "elements", index: 1)
-          ])
-        messages.append(message)
+        if !messageNames.contains(messageName) {
+          let message = ProtoMessage(
+            name: messageName,
+            fields: [
+              ProtoField(modifier: .repeated, baseType: elementProtoType, name: "elements", index: 1)
+            ])
+          messages.append(message)
+        }
         return .custom(messageName)
+      case "Optional":
+        guard swiftType.typeParameters.count == 1, let wrappedType = swiftType.typeParameters.first else {
+          throw ProtoError.invalidOptionalType(swiftType)
+        }
+        return try protoType(for: wrappedType)
       default:
-        if messages.contains(where: { $0.name == swiftType.name }) {
+        if messageNames.contains(swiftType.name) {
+          guard swiftType.typeParameters.isEmpty else {
+            throw ProtoError.customTypeCantBeGeneric(swiftType)
+          }
           return .custom(swiftType.name)
         }
         throw ProtoError.unknownVariableType(swiftType.description)

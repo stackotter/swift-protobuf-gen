@@ -30,8 +30,10 @@ class StructParser : ASTVisitor {
       if "}])>".contains(c) {
         openBrackets.removeLast()
         token.append(c)
-        tokens.append(token)
-        token = ""
+        if openBrackets.isEmpty {
+          tokens.append(token)
+          token = ""
+        }
         continue
       }
       
@@ -157,35 +159,38 @@ class StructParser : ASTVisitor {
         openBrackets.append("<")
         
         // Read generic type parameters
-      forLoop: for token in iterator {
-        switch token {
-          case "<":
-            openBrackets.append(token)
-          case ">":
-            openBrackets.removeLast()
-            
-            if openBrackets.isEmpty {
-              if let currentTypeParameter = currentTypeParameterTokens {
-                typeParameterTokens.append(currentTypeParameter)
+        forLoop: for token in iterator {
+          switch token {
+            case "<":
+              openBrackets.append(token)
+              currentTypeParameterTokens?.append(token)
+            case ">":
+              openBrackets.removeLast()
+              
+              if openBrackets.isEmpty {
+                if let currentTypeParameter = currentTypeParameterTokens {
+                  typeParameterTokens.append(currentTypeParameter)
+                }
+                break forLoop
+              } else {
+                currentTypeParameterTokens?.append(token)
               }
-              break forLoop
-            }
-          default:
-            if token == "," && openBrackets.count == 1 {
-              guard let typeParameter = currentTypeParameterTokens else {
-                throw ParseError.invalidComma
+            default:
+              if token == "," && openBrackets.count == 1 {
+                guard let typeParameter = currentTypeParameterTokens else {
+                  throw ParseError.invalidComma
+                }
+                
+                typeParameterTokens.append(typeParameter)
+                currentTypeParameterTokens = []
               }
               
-              typeParameterTokens.append(typeParameter)
-              currentTypeParameterTokens = []
-            }
-            
-            if currentTypeParameterTokens == nil {
-              currentTypeParameterTokens = []
-            }
-            currentTypeParameterTokens?.append(token)
+              if currentTypeParameterTokens == nil {
+                currentTypeParameterTokens = []
+              }
+              currentTypeParameterTokens?.append(token)
+          }
         }
-      }
       }
     }
     

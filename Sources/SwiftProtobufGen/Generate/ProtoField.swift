@@ -1,13 +1,13 @@
 struct ProtoField {
-  var isRepeated: Bool
+  var modifier: ProtoFieldModifier?
   var baseType: ProtoType
   var name: String
-  var index: Int
+  var index: Int = 1
   
   func toString() -> String {
     var string = "  "
-    if isRepeated {
-      string += "repeated "
+    if let modifier = modifier {
+      string += modifier.rawValue + " "
     }
     switch baseType {
       case .custom(let custom):

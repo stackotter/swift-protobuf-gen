@@ -6,6 +6,11 @@ import Source
 let tempDir = FileManager.default.temporaryDirectory
 let tempFile = tempDir.appendingPathComponent("code.swift")
 let testCode = """
+struct Thing {
+  var name: String
+  var price: String?
+}
+
 struct Friend {
   var fullName: String
   var eyeCount: UInt8
@@ -14,9 +19,10 @@ struct Friend {
 struct Person {
   var firstName: String
   var lastName: String
-  var age: Int
+  var age: Int?
   var twiceAge: Int { age * 2 }
   var friends: [Friend]
+  var favoriteThings: [Thing]?
 }
 """
 
@@ -32,13 +38,15 @@ do {
   
   guard
     let friendStruct = visitor.structs.first(where: { $0.name == "Friend" }),
-    let personStruct = visitor.structs.first(where: { $0.name == "Person" })
+    let personStruct = visitor.structs.first(where: { $0.name == "Person" }),
+    let thingStruct = visitor.structs.first(where: { $0.name == "Thing" })
   else {
     print("Failed to find specified struct")
     Foundation.exit(1)
   }
   
   var file = ProtoFile()
+  try file.add(thingStruct)
   try file.add(friendStruct)
   try file.add(personStruct)
   print(file.toString())
