@@ -38,8 +38,16 @@ struct ProtoFile {
   
   private mutating func protoType(for swiftType: TypeDeclaration) throws -> ProtoType {
     switch swiftType.name {
-      case "Int":
+      case "Int", "Int64":
         return .int64
+      case "UInt", "UInt64":
+        return .uint64
+      case "Int32", "Int16", "Int8":
+        return .int32
+      case "UInt32", "UInt16", "UInt8":
+        return .uint32
+      case "Bool":
+        return .bool
       case "String":
         return .string
       case "Array", "Set":
