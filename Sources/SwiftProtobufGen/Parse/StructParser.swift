@@ -5,6 +5,11 @@ class StructParser : ASTVisitor {
   var structs: [StructDeclaration] = []
   
   func visit(_ structDecl: AST.StructDeclaration) throws -> Bool {
+    guard structDecl.genericParameterClause == nil && structDecl.genericWhereClause == nil else {
+      print("warning: Skipping '\(structDecl.name.description)' struct because it has generic type parameter")
+      return true
+    }
+    
     var properties: [PropertyDeclaration] = []
     for member in structDecl.members {
       if let property = try parsePropertyMember(member.textDescription) {
@@ -132,7 +137,6 @@ class StructParser : ASTVisitor {
       
       // Ignore computed properties
       if let nextToken = iterator.next() {
-        print("next token: \(nextToken)")
         if nextToken.starts(with: "{") {
           return nil
         }

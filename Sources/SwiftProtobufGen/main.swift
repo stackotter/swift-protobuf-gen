@@ -6,23 +6,24 @@ import Source
 let tempDir = FileManager.default.temporaryDirectory
 let tempFile = tempDir.appendingPathComponent("code.swift")
 let testCode = """
+enum Response {
+  case yes
+  case no
+}
+
 struct Thing {
   var name: String
   var price: String?
-}
-
-struct Friend {
-  var fullName: String
-  var eyeCount: UInt8
 }
 
 struct Person {
   var firstName: String
   var lastName: String
   var age: Int?
-  var twiceAge: Int { age * 2 }
-  var friends: [Friend]
   var favoriteThings: [Thing]?
+  var eulaResponse: Response
+
+  var twiceAge: Int { age * 2 }
 }
 """
 
@@ -33,21 +34,26 @@ do {
   let parser = Parser(source: sourceFile)
   let topLevelDecl = try parser.parse()
   
-  let visitor = StructParser()
-  try _ = visitor.traverse(topLevelDecl)
+  let structParser = StructParser()
+  let enumParser = EnumParser()
+  try _ = structParser.traverse(topLevelDecl)
+  try _ = enumParser.traverse(topLevelDecl)
+  
+  let structs = structParser.structs
+  let enums = enumParser.enums
   
   guard
-    let friendStruct = visitor.structs.first(where: { $0.name == "Friend" }),
-    let personStruct = visitor.structs.first(where: { $0.name == "Person" }),
-    let thingStruct = visitor.structs.first(where: { $0.name == "Thing" })
+    let personStruct = structs.first(where: { $0.name == "Person" }),
+    let thingStruct = structs.first(where: { $0.name == "Thing" }),
+    let responseEnum = enums.first(where: { $0.name == "Response" })
   else {
     print("Failed to find specified struct")
     Foundation.exit(1)
   }
   
   var file = ProtoFile()
+  file.add(responseEnum)
   try file.add(thingStruct)
-  try file.add(friendStruct)
   try file.add(personStruct)
   print(file.toString())
 } catch {

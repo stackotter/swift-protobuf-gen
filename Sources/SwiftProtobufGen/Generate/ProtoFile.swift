@@ -2,14 +2,29 @@ import Foundation
 
 struct ProtoFile {
   var syntax = "proto3"
+  
+  var enums: [ProtoEnum] = []
+  var enumNames: [String] {
+    enums.map { $0.name }
+  }
+  
   var messages: [ProtoMessage] = []
   var messageNames: [String] {
     messages.map { $0.name }
   }
   
+  var typeNames: [String] {
+    var typesNames: [String] = enumNames
+    typesNames.append(contentsOf: messageNames)
+    return typesNames
+  }
+  
   /// - Returns: The generated contents of the proto file.
   func toString() -> String {
     var string = "syntax = \"\(syntax)\";"
+    for protoEnum in enums {
+      string += "\n\n" + protoEnum.toString()
+    }
     for message in messages {
       string += "\n\n" + message.toString()
     }
@@ -19,6 +34,8 @@ struct ProtoFile {
   func write(to file: URL) throws {
     try toString().write(to: file, atomically: false, encoding: .utf8)
   }
+  
+  // MARK: Struct
   
   /// Adds the message types for a Swift struct to the generator.
   /// - Parameter structDeclaration: Struct to add protobuf message types for.
@@ -74,7 +91,7 @@ struct ProtoFile {
         }
         return try protoType(for: wrappedType)
       default:
-        if messageNames.contains(swiftType.name) {
+        if typeNames.contains(swiftType.name) {
           guard swiftType.typeParameters.isEmpty else {
             throw ProtoError.customTypeCantBeGeneric(swiftType)
           }
@@ -94,5 +111,20 @@ struct ProtoFile {
       default:
         return swiftType.name
     }
+  }
+  
+  // MARK: Enum
+  
+  mutating func add(_ enumDeclaration: EnumDeclaration) {
+    var cases: [ProtoEnumCase] = []
+    for (index, name) in enumDeclaration.cases.enumerated() {
+      cases.append(ProtoEnumCase(name: name, index: index + 1))
+    }
+    
+    enums.append(
+      ProtoEnum(
+        name: enumDeclaration.name,
+        cases: cases
+      ))
   }
 }
