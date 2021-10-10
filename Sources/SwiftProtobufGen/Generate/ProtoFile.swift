@@ -6,9 +6,9 @@ struct ProtoFile {
   
   /// - Returns: The generated contents of the proto file.
   func toString() -> String {
-    var string = "syntax = \"\(syntax)\";\n\n"
+    var string = "syntax = \"\(syntax)\";"
     for message in messages {
-      string += message.toString() + "\n\n"
+      string += "\n\n" + message.toString()
     }
     return string
   }
@@ -64,6 +64,9 @@ struct ProtoFile {
         messages.append(message)
         return .custom(messageName)
       default:
+        if messages.contains(where: { $0.name == swiftType.name }) {
+          return .custom(swiftType.name)
+        }
         throw ProtoError.unknownVariableType(swiftType.description)
     }
   }

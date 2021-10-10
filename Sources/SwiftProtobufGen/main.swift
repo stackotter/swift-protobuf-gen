@@ -16,7 +16,7 @@ struct Person {
   var lastName: String
   var age: Int
   var twiceAge: Int { age * 2 }
-  var friends: [String]
+  var friends: [Friend]
 }
 """
 
@@ -31,8 +31,8 @@ do {
   try _ = visitor.traverse(topLevelDecl)
   
   guard
-    let friendStruct = visitor.structs["Friend"],
-    let personStruct = visitor.structs["Person"]
+    let friendStruct = visitor.structs.first(where: { $0.name == "Friend" }),
+    let personStruct = visitor.structs.first(where: { $0.name == "Person" })
   else {
     print("Failed to find specified struct")
     Foundation.exit(1)

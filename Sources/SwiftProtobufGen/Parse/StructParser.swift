@@ -2,7 +2,7 @@ import Foundation
 import AST
 
 class StructParser : ASTVisitor {
-  var structs: [String: StructDeclaration] = [:]
+  var structs: [StructDeclaration] = []
   
   func visit(_ structDecl: AST.StructDeclaration) throws -> Bool {
     var properties: [PropertyDeclaration] = []
@@ -12,7 +12,7 @@ class StructParser : ASTVisitor {
       }
     }
     
-    structs[structDecl.name.description] = StructDeclaration(name: structDecl.name.description, properties: properties)
+    structs.append(StructDeclaration(name: structDecl.name.description, properties: properties))
     
     return true
   }
