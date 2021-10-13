@@ -10,6 +10,8 @@ class StructParser : ASTVisitor {
       return true
     }
     
+    print("Parsing struct '\(structDecl.name.description)'")
+    
     var properties: [PropertyDeclaration] = []
     for member in structDecl.members {
       if let property = try parsePropertyMember(member.textDescription) {

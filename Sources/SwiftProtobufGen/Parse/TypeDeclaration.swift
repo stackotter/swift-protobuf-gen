@@ -12,4 +12,13 @@ struct TypeDeclaration: CustomStringConvertible {
     }
     return string
   }
+  
+  /// All types involved with this type (as in including type parameters and their type parameters and so on).
+  var types: [String] {
+    var types = [name]
+    for typeParameter in typeParameters {
+      types.append(contentsOf: typeParameter.types)
+    }
+    return types
+  }
 }

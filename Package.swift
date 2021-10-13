@@ -7,13 +7,16 @@ let package = Package(
   platforms: [.macOS(.v11)],
   products: [.executable(name: "SwiftProtobufGen", targets: ["SwiftProtobufGen"])],
   dependencies: [
-//    .package(name: "SwiftSyntax", url: "https://github.com/apple/swift-syntax.git", .exact("0.50500.0")),
     .package(url: "https://github.com/yanagiba/swift-ast.git", from: "0.19.9"),
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.0.1"),
   ],
   targets: [
     .executableTarget(
       name: "SwiftProtobufGen",
-      dependencies: [.product(name: "SwiftAST+Tooling", package: "swift-ast")]),
+      dependencies: [
+        .product(name: "SwiftAST+Tooling", package: "swift-ast"),
+        .product(name: "ArgumentParser", package: "swift-argument-parser")
+      ]),
     .testTarget(
       name: "SwiftProtobufGenTests",
       dependencies: ["SwiftProtobufGen"]),

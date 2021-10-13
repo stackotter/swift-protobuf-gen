@@ -10,6 +10,8 @@ class EnumParser: ASTVisitor {
       return true
     }
     
+    print("Parsing enum '\(enumDecl.name.description)'")
+    
     var cases: [String] = []
     for member in enumDecl.members {
       do {

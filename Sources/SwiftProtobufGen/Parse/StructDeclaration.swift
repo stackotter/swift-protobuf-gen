@@ -12,4 +12,13 @@ struct StructDeclaration: CustomStringConvertible {
     string += "}"
     return string
   }
+  
+  /// Returns all types used by this struct's variables.
+  var types: [String] {
+    var types: [String] = []
+    for property in properties {
+      types.append(contentsOf: property.type.types)
+    }
+    return types
+  }
 }
