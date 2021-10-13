@@ -9,45 +9,17 @@ func terminate(_ message: String) -> Never {
 }
 
 struct SwiftProtobufGen: ParsableCommand {
-  @Argument(help: "The file containing the struct")
-  var file: String
+  @Argument(help: "The directory containing swift source files with all the required types")
+  var directory: String
   
   @Argument(help: "The type to create a protobuf message definition for (either an enum or a struct)")
   var typeName: String
   
   func run() {
-    let url = URL(fileURLWithPath: file)
-    guard FileManager.default.fileExists(atPath: url.path) else {
-      terminate("File does not exist")
-    }
+    let directory = URL(fileURLWithPath: directory, isDirectory: true)
     
-    // Parse structs and enums in file
+    // Parse required structs and enums
     do {
-      print("Parsing file '\(url.lastPathComponent)'")
-      let sourceFile = try SourceReader.read(at: url.path)
-      let parser = Parser(source: sourceFile)
-      let topLevelDecl = try parser.parse()
-      
-      let structParser = StructParser()
-      let enumParser = EnumParser()
-      try _ = structParser.traverse(topLevelDecl)
-      try _ = enumParser.traverse(topLevelDecl)
-      
-      var allTypeDependencies: [String] = []
-      var structs: [String: StructDeclaration] = [:]
-      for structDecl in structParser.structs {
-        structs[structDecl.name] = structDecl
-        allTypeDependencies.append(contentsOf: structDecl.types)
-      }
-      
-      var enums: [String: EnumDeclaration] = [:]
-      for enumDecl in enumParser.enums {
-        enums[enumDecl.name] = enumDecl
-      }
-      
-      // Create a list of base types (such as String and Int)
-      // Find all variable types that are not base types. Check that they have been parsed
-      // If they don't, throw an error for now. But eventually, search for those missing types in the specified directory.
       let baseTypes: Set = [
         "Int", "Int64",
         "UInt", "UInt64",
@@ -57,13 +29,55 @@ struct SwiftProtobufGen: ParsableCommand {
         "Array", "Set",
         "Optional"]
       
-      var missingTypes = Set(allTypeDependencies)
-      missingTypes.subtract(baseTypes)
-      missingTypes.subtract(structs.keys)
-      missingTypes.subtract(enums.keys)
+      var structs: [String: StructDeclaration] = [:]
+      var enums: [String: EnumDeclaration] = [:]
+      var allTypeDependencies: Set<String> = []
       
-      if !missingTypes.isEmpty {
-        terminate("Missing types: \(missingTypes)")
+      var missingTypes: Set<String> = [typeName]
+      
+      while !missingTypes.isEmpty {
+        let typeName = missingTypes.removeFirst()
+        
+        guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) else {
+          terminate("Failed to create directory enumerator")
+        }
+        
+        var swiftFileOptional: URL?
+        for case let file as URL in enumerator where file.lastPathComponent == "\(typeName).swift" {
+          swiftFileOptional = file
+          break
+        }
+        
+        guard let swiftFile = swiftFileOptional else {
+          terminate("Failed to find file for '\(typeName)' (should be called '\(typeName).swift')")
+        }
+        
+        let sourceFile = try SourceReader.read(at: swiftFile.path)
+        let parser = Parser(source: sourceFile)
+        let topLevelDecl = try parser.parse()
+        
+        let structParser = StructParser()
+        let enumParser = EnumParser()
+        try _ = structParser.traverse(topLevelDecl)
+        try _ = enumParser.traverse(topLevelDecl)
+        
+        for structDecl in structParser.structs {
+          structs[structDecl.name] = structDecl
+          allTypeDependencies.formUnion(structDecl.dependencies)
+        }
+        
+        for enumDecl in enumParser.enums {
+          enums[enumDecl.name] = enumDecl
+        }
+        
+        missingTypes = allTypeDependencies
+        missingTypes.subtract(baseTypes)
+        missingTypes.subtract(structs.keys)
+        missingTypes.subtract(enums.keys)
+        
+        if missingTypes.contains(typeName) {
+          terminate("Failed to locate type '\(typeName)' in '\(typeName).swift'")
+        }
       }
       
       // Create proto
@@ -74,10 +88,8 @@ struct SwiftProtobufGen: ParsableCommand {
       whileLoop: while !typesToAdd.isEmpty {
         let typeToAdd = typesToAdd[typesToAdd.count - 1]
         if let decl = structs[typeToAdd] {
-          let dependencies = decl.types
-          
           // If a dependency is not yet added to the proto file, skip this one for now and add it
-          for dependency in dependencies {
+          for dependency in decl.dependencies {
             if !typesAdded.contains(dependency) && !baseTypes.contains(dependency) {
               typesToAdd.removeAll { $0 == dependency }
               typesToAdd.append(dependency)
@@ -105,28 +117,3 @@ struct SwiftProtobufGen: ParsableCommand {
 }
 
 SwiftProtobufGen.main()
-
-// Create test file
-//let tempDir = FileManager.default.temporaryDirectory
-//let tempFile = tempDir.appendingPathComponent("code.swift")
-//let testCode = """
-//enum Response {
-//  case yes
-//  case no
-//}
-//
-//struct Thing {
-//  var name: String
-//  var price: String?
-//}
-//
-//struct Person {
-//  var firstName: String
-//  var lastName: String
-//  var age: Int?
-//  var favoriteThings: [Thing]?
-//  var eulaResponse: Response
-//
-//  var twiceAge: Int { age * 2 }
-//}
-//"""
