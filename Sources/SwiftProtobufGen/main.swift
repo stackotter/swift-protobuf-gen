@@ -9,17 +9,21 @@ func terminate(_ message: String) -> Never {
 }
 
 struct SwiftProtobufGen: ParsableCommand {
-  @Argument(help: "The directory containing swift source files with all the required types")
+  @Option(name: [.short, .customLong("dir")], help: "The directory containing swift source files with all the required types")
   var directory: String
   
-  @Argument(help: "The type to create a protobuf message definition for (either an enum or a struct)")
+  @Option(name: [.short, .customLong("type")], help: "The type to create a protobuf message definition for (either an enum or a struct)")
   var typeName: String
+  
+  @Option(name: [.short, .customLong("out")], help: "The directory to output protobuf stuff to")
+  var outputDirectory: String
   
   func run() {
     let directory = URL(fileURLWithPath: directory, isDirectory: true)
+    let outputDirectory = URL(fileURLWithPath: outputDirectory, isDirectory: true)
     
-    // Parse required structs and enums
     do {
+      // Locate and parse the required Swift types
       let baseTypes: Set = [
         "Int", "Int64",
         "UInt", "UInt64",
@@ -80,7 +84,7 @@ struct SwiftProtobufGen: ParsableCommand {
         }
       }
       
-      // Create proto
+      // Generate proto
       var protoFile = ProtoFile()
       var typesAdded: Set<String> = []
       var typesToAdd = [typeName]
@@ -109,9 +113,25 @@ struct SwiftProtobufGen: ParsableCommand {
         typesAdded.insert(typeToAdd)
       }
       
-      print("Added all types")
+      // Output proto
+      print("Creating `generated.proto`")
+      let proto = protoFile.toString()
+      let protoOutFile = outputDirectory.appendingPathComponent("generated.proto")
+      try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true, attributes: nil)
+      try proto.write(to: protoOutFile, atomically: false, encoding: .utf8)
+      
+      // Run protobuf generate command
+      print("Generating swift -> protobuf interface")
+      let command = "protoc --swift_out=. generated.proto"
+      guard Shell.getExitStatus(command, outputDirectory) == 0 else {
+        terminate("Failed to run `\(command)` to generate swift -> protobuf interface code")
+      }
+      
+      // Edit generated code
+      print("Editing swift -> protobuf interface")
+      
     } catch {
-      print("Failed to parse file: \(error)")
+      print("Error: \(error)")
     }
   }
 }

@@ -118,7 +118,7 @@ struct ProtoFile {
   mutating func add(_ enumDeclaration: EnumDeclaration) {
     var cases: [ProtoEnumCase] = []
     for (index, name) in enumDeclaration.cases.enumerated() {
-      cases.append(ProtoEnumCase(name: name, index: index + 1))
+      cases.append(ProtoEnumCase(name: name, index: index))
     }
     
     enums.append(
