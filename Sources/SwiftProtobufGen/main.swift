@@ -12,8 +12,8 @@ struct SwiftProtobufGen: ParsableCommand {
   @Argument(help: "The file containing the struct")
   var file: String
   
-  @Argument(help: "The struct to create a protobuf message definition for*")
-  var structName: String
+  @Argument(help: "The type to create a protobuf message definition for (either an enum or a struct)")
+  var typeName: String
   
   func run() {
     let url = URL(fileURLWithPath: file)
@@ -33,11 +33,16 @@ struct SwiftProtobufGen: ParsableCommand {
       try _ = structParser.traverse(topLevelDecl)
       try _ = enumParser.traverse(topLevelDecl)
       
-      var typesInvolved: [String] = []
+      var allTypeDependencies: [String] = []
       var structs: [String: StructDeclaration] = [:]
       for structDecl in structParser.structs {
         structs[structDecl.name] = structDecl
-        typesInvolved.append(contentsOf: structDecl.types)
+        allTypeDependencies.append(contentsOf: structDecl.types)
+      }
+      
+      var enums: [String: EnumDeclaration] = [:]
+      for enumDecl in enumParser.enums {
+        enums[enumDecl.name] = enumDecl
       }
       
       // Create a list of base types (such as String and Int)
@@ -52,62 +57,44 @@ struct SwiftProtobufGen: ParsableCommand {
         "Array", "Set",
         "Optional"]
       
-      var types = Set(typesInvolved)
-      types.subtract(baseTypes)
-      types.subtract(Set(structs.keys))
-      types.subtract(Set(enumParser.enums.map { $0.name }))
+      var missingTypes = Set(allTypeDependencies)
+      missingTypes.subtract(baseTypes)
+      missingTypes.subtract(structs.keys)
+      missingTypes.subtract(enums.keys)
       
-      if !types.isEmpty {
-        terminate("Missing types: \(types)")
+      if !missingTypes.isEmpty {
+        terminate("Missing types: \(missingTypes)")
       }
       
       // Create proto
       var protoFile = ProtoFile()
       var typesAdded: Set<String> = []
+      var typesToAdd = [typeName]
       
-      // We can safely add enums first and in any order because they can't depend on any types
-      // (well they can, but if they do an error has already been thrown because they aren't
-      // supported for putting into protobufs)
-      for enumDecl in enumParser.enums {
-        print("Adding enum '\(enumDecl.name)' to protobuf messages")
-        protoFile.add(enumDecl)
-        typesAdded.insert(enumDecl.name)
-      }
-      
-      var structsToAdd = [structName]
-      var deferred: [String] = []
-      whileLoop: while !(structsToAdd.isEmpty && deferred.isEmpty) {
-        if structsToAdd.isEmpty {
-          structsToAdd = deferred
-          deferred = []
-        }
-        
-        let structToAdd = structsToAdd[structsToAdd.count - 1]
-        let decl = structs[structToAdd]!
-        let dependencies = decl.types
-        
-        for dependency in dependencies {
-          if !typesAdded.contains(dependency) && !baseTypes.contains(dependency) {
-            // Come back to this type later
-            deferred.append(structToAdd)
-            structsToAdd.remove(at: structsToAdd.count - 1)
-            
-            // Make sure the required type is processed soonish
-            if deferred.contains(dependency) {
-              structsToAdd.append(dependency)
-              deferred.removeAll { $0 == dependency }
-            } else if structs.keys.contains(dependency) && !structsToAdd.contains(dependency) {
-              structsToAdd.append(dependency)
+      whileLoop: while !typesToAdd.isEmpty {
+        let typeToAdd = typesToAdd[typesToAdd.count - 1]
+        if let decl = structs[typeToAdd] {
+          let dependencies = decl.types
+          
+          // If a dependency is not yet added to the proto file, skip this one for now and add it
+          for dependency in dependencies {
+            if !typesAdded.contains(dependency) && !baseTypes.contains(dependency) {
+              typesToAdd.removeAll { $0 == dependency }
+              typesToAdd.append(dependency)
+              continue whileLoop
             }
-            
-            continue whileLoop
           }
+          
+          print("Adding struct '\(decl.name)' to protobuf messages")
+          try protoFile.add(decl)
+        } else if let decl = enums[typeToAdd] {
+          protoFile.add(decl)
+        } else {
+          terminate("Can't find type '\(typeToAdd)'")
         }
         
-        print("Adding struct '\(decl.name)' to protobuf messages")
-        try protoFile.add(decl)
-        structsToAdd.remove(at: structsToAdd.count - 1)
-        typesAdded.insert(structToAdd)
+        typesToAdd.remove(at: typesToAdd.count - 1)
+        typesAdded.insert(typeToAdd)
       }
       
       print("Added all types")
